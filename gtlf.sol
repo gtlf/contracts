@@ -1741,12 +1741,13 @@ interface IStakingRewards {
 abstract contract RewardsDistributionRecipient {
     address public rewardsDistribution;
 
-    function notifyRewardAmount(uint256 reward) virtual external;
-
-    modifier onlyRewardsDistribution() {
-        require(msg.sender == rewardsDistribution, "Caller is not RewardsDistribution contract");
-        _;
-    }
+    // comment for reduce code size
+    //function notifyRewardAmount(uint256 reward) virtual external;
+    //
+    //modifier onlyRewardsDistribution() {
+    //    require(msg.sender == rewardsDistribution, "Caller is not RewardsDistribution contract");
+    //    _;
+    //}
 }
 
 contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, ReentrancyGuardUpgradeSafe {
@@ -1816,71 +1817,83 @@ contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, Reentr
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
+    // comment for reduce code size
+    //function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual public nonReentrant updateReward(msg.sender) {
+    //    require(amount > 0, "Cannot stake 0");
+    //    _totalSupply = _totalSupply.add(amount);
+    //    _balances[msg.sender] = _balances[msg.sender].add(amount);
+    //
+    //    // permit
+    //    IPermit(address(stakingToken)).permit(msg.sender, address(this), amount, deadline, v, r, s);
+    //
+    //    stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+    //    emit Staked(msg.sender, amount);
+    //}
 
-    function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual public nonReentrant updateReward(msg.sender) {
+    function stake(uint256 amount) virtual override public {
+        _stake(msg.sender, amount);
+    }
+    function _stake(address acct, uint256 amount) virtual internal nonReentrant updateReward(acct) {
         require(amount > 0, "Cannot stake 0");
         _totalSupply = _totalSupply.add(amount);
-        _balances[msg.sender] = _balances[msg.sender].add(amount);
-
-        // permit
-        IPermit(address(stakingToken)).permit(msg.sender, address(this), amount, deadline, v, r, s);
-
-        stakingToken.safeTransferFrom(msg.sender, address(this), amount);
-        emit Staked(msg.sender, amount);
+        _balances[acct] = _balances[acct].add(amount);
+        stakingToken.safeTransferFrom(acct, address(this), amount);
+        emit Staked(acct, amount);
     }
 
-    function stake(uint256 amount) virtual override public nonReentrant updateReward(msg.sender) {
-        require(amount > 0, "Cannot stake 0");
-        _totalSupply = _totalSupply.add(amount);
-        _balances[msg.sender] = _balances[msg.sender].add(amount);
-        stakingToken.safeTransferFrom(msg.sender, address(this), amount);
-        emit Staked(msg.sender, amount);
+    function withdraw(uint256 amount) virtual override public {
+        _withdraw(msg.sender, amount);
     }
-
-    function withdraw(uint256 amount) virtual override public nonReentrant updateReward(msg.sender) {
+    function _withdraw(address acct, uint256 amount) virtual internal nonReentrant updateReward(acct) {
         require(amount > 0, "Cannot withdraw 0");
         _totalSupply = _totalSupply.sub(amount);
-        _balances[msg.sender] = _balances[msg.sender].sub(amount);
-        stakingToken.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        _balances[acct] = _balances[acct].sub(amount);
+        stakingToken.safeTransfer(acct, amount);
+        emit Withdrawn(acct, amount);
     }
 
-    function getReward() virtual override public nonReentrant updateReward(msg.sender) {
-        uint256 reward = rewards[msg.sender];
+    function getReward() virtual override public {
+        _getReward(msg.sender);
+    }
+    function _getReward(address acct) virtual internal nonReentrant updateReward(acct) {
+        uint256 reward = rewards[acct];
         if (reward > 0) {
-            rewards[msg.sender] = 0;
-            rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
+            rewards[acct] = 0;
+            rewardsToken.safeTransfer(acct, reward);
+            emit RewardPaid(acct, reward);
         }
     }
 
     function exit() virtual override public {
-        getReward();
-        withdraw(_balances[msg.sender]);
+        _exit(msg.sender);
+    }
+    function _exit(address acct) virtual internal {
+        _getReward(acct);
+        _withdraw(acct, _balances[acct]);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
-
-    function notifyRewardAmount(uint256 reward) override external onlyRewardsDistribution updateReward(address(0)) {
-        if (block.timestamp >= periodFinish) {
-            rewardRate = reward.div(rewardsDuration);
-        } else {
-            uint256 remaining = periodFinish.sub(block.timestamp);
-            uint256 leftover = remaining.mul(rewardRate);
-            rewardRate = reward.add(leftover).div(rewardsDuration);
-        }
-
-        // Ensure the provided reward amount is not more than the balance in the contract.
-        // This keeps the reward rate in the right range, preventing overflows due to
-        // very high values of rewardRate in the earned and rewardsPerToken functions;
-        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-        uint balance = rewardsToken.balanceOf(address(this));
-        require(rewardRate <= balance.div(rewardsDuration), "Provided reward too high");
-
-        lastUpdateTime = block.timestamp;
-        periodFinish = block.timestamp.add(rewardsDuration);
-        emit RewardAdded(reward);
-    }
+    // comment for reduce code size
+    //function notifyRewardAmount(uint256 reward) override external onlyRewardsDistribution updateReward(address(0)) {
+    //    if (block.timestamp >= periodFinish) {
+    //        rewardRate = reward.div(rewardsDuration);
+    //    } else {
+    //        uint256 remaining = periodFinish.sub(block.timestamp);
+    //        uint256 leftover = remaining.mul(rewardRate);
+    //        rewardRate = reward.add(leftover).div(rewardsDuration);
+    //    }
+    //
+    //    // Ensure the provided reward amount is not more than the balance in the contract.
+    //    // This keeps the reward rate in the right range, preventing overflows due to
+    //    // very high values of rewardRate in the earned and rewardsPerToken functions;
+    //    // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+    //    uint balance = rewardsToken.balanceOf(address(this));
+    //    require(rewardRate <= balance.div(rewardsDuration), "Provided reward too high");
+    //
+    //    lastUpdateTime = block.timestamp;
+    //    periodFinish = block.timestamp.add(rewardsDuration);
+    //    emit RewardAdded(reward);
+    //}
 
     /* ========== MODIFIERS ========== */
 
@@ -2006,7 +2019,10 @@ contract StakingPool is Configurable, StakingRewards {
     function getReward() virtual override public {
         getReward(msg.sender);
     }
-    function getReward(address acct) virtual public nonReentrant updateReward(acct) {
+    function getReward(address acct) virtual public {
+        _getReward(acct);
+    }
+    function _getReward(address acct) virtual override internal nonReentrant updateReward(acct) {
         require(acct != address(0), 'invalid address');
         require(getConfig(_blocklist_, acct) == 0, 'In blocklist');
         bool isContract = acct.isContract();
@@ -2049,27 +2065,36 @@ interface IWETH is IERC20 {
 }
 
 contract EthPool is StakingPool {
-    function stakeEth() virtual public payable nonReentrant updateReward(msg.sender) {
+    function stakeEth() virtual public payable {
+        _stakeEth(msg.sender);
+    }
+    function _stakeEth(address acct) virtual internal nonReentrant updateReward(acct) {
         uint amount = msg.value;
         require(amount > 0, "Cannot stake 0");
         _totalSupply = _totalSupply.add(amount);
-        _balances[msg.sender] = _balances[msg.sender].add(amount);
-        IWETH(address(stakingToken)).deposit{value: amount}();                   //stakingToken.safeTransferFrom(msg.sender, address(this), amount);
-        emit Staked(msg.sender, amount);
+        _balances[acct] = _balances[acct].add(amount);
+        IWETH(address(stakingToken)).deposit{value: amount}();                   //stakingToken.safeTransferFrom(acct, address(this), amount);
+        emit Staked(acct, amount);
     }
 
-    function withdrawEth(uint256 amount) virtual public nonReentrant updateReward(msg.sender) {
+    function withdrawEth(uint256 amount) virtual public {
+        _withdrawEth(msg.sender, amount);
+    }
+    function _withdrawEth(address payable acct, uint256 amount) virtual internal nonReentrant updateReward(acct) {
         require(amount > 0, "Cannot withdraw 0");
         _totalSupply = _totalSupply.sub(amount);
-        _balances[msg.sender] = _balances[msg.sender].sub(amount);
-        IWETH(address(stakingToken)).withdraw(amount);                           //stakingToken.safeTransfer(msg.sender, amount);
-        msg.sender.transfer(amount);
-        emit Withdrawn(msg.sender, amount);
+        _balances[acct] = _balances[acct].sub(amount);
+        IWETH(address(stakingToken)).withdraw(amount);                           //stakingToken.safeTransfer(acct, amount);
+        acct.transfer(amount);
+        emit Withdrawn(acct, amount);
     }
 
     function exitEth() virtual public {
-        getReward();
-        withdrawEth(_balances[msg.sender]);
+        _exitEth(msg.sender);
+    }
+    function _exitEth(address payable acct) virtual internal {
+        _getReward(acct);
+        _withdrawEth(acct, _balances[acct]);
     }
     
     receive () payable external {
@@ -2111,9 +2136,10 @@ contract LimitPool is EthPool {
         require(_balances[acct] <= calcStakeVol(), 'out of limit');
     }
     
-    function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual override public checkLimit(msg.sender) {
-        super.stakeWithPermit(amount, deadline, v, r, s);
-    }
+    // comment for reduce code size
+    //function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual override public checkLimit(msg.sender) {
+    //    super.stakeWithPermit(amount, deadline, v, r, s);
+    //}
 
     function stake(uint256 amount) virtual override public checkLimit(msg.sender) {
         super.stake(amount);
@@ -2187,35 +2213,36 @@ contract ReferPool is EthPool {
         referTotalSupply         = referTotalSupply.sub0(dec1).sub0(dec2); 
     }
     
-    function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual override public checkRefer {
-        super.stakeWithPermit(amount, deadline, v, r, s);
-        _increaseBalanceRefer(msg.sender, amount);
+    // comment for reduce code size
+    //function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual override public checkRefer(msg.sender) {
+    //    super.stakeWithPermit(amount, deadline, v, r, s);
+    //    _increaseBalanceRefer(msg.sender, amount);
+    //}
+
+    function _stake(address acct, uint256 amount) virtual override internal checkRefer(acct) {
+        super._stake(acct, amount);
+        _increaseBalanceRefer(acct, amount);
     }
 
-    function stake(uint256 amount) virtual override public checkRefer {
-        super.stake(amount);
-        _increaseBalanceRefer(msg.sender, amount);
-    }
-
-    function stakeEth() virtual override public payable checkRefer {
+    function _stakeEth(address acct) virtual override internal checkRefer(acct) {
         require(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH(), 'stakingToken is not WETH');
-        super.stakeEth();
-        _increaseBalanceRefer(msg.sender, msg.value);
+        super._stakeEth(acct);
+        _increaseBalanceRefer(acct, msg.value);
     }
     
-    function withdraw(uint256 amount) virtual override public {
-        super.withdraw(amount);
-        _decreaseBalanceRefer(msg.sender, amount);
+    function _withdraw(address acct, uint256 amount) virtual override internal {
+        super._withdraw(acct, amount);
+        _decreaseBalanceRefer(acct, amount);
     }
     
-    function withdrawEth(uint256 amount) virtual override public {
+    function _withdrawEth(address payable acct, uint256 amount) virtual override internal {
         require(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH(), 'stakingToken is not WETH');
-        super.withdrawEth(amount);
-        _decreaseBalanceRefer(msg.sender, amount);
+        super._withdrawEth(acct, amount);
+        _decreaseBalanceRefer(acct, amount);
     }
     
-    modifier checkRefer {
-        require(refer.refererOf(msg.sender) != address(0), 'Bind referer first');
+    modifier checkRefer(address acct) {
+        require(refer.refererOf(acct) != address(0), 'Bind referer first');
         _;
     }
     
@@ -2229,12 +2256,12 @@ contract ReferPool is EthPool {
             );
     }
 
-    function earnedRefer(address acct) virtual public view returns (uint) {
+    function referEarned(address acct) virtual public view returns (uint) {
         return referBalanceOf[acct].mul(rewardPerToken().sub(userRewardPerTokenPaid[acct])).div(1e18).add(referRewards[acct]);
     }
 
     function earned(address acct) virtual override public view returns (uint) {
-        return super.earned(acct).add(earnedRefer(acct));
+        return super.earned(acct).add(referEarned(acct));
     }
 
     modifier updateReward(address acct) virtual override {
@@ -2261,7 +2288,7 @@ contract ReferPool is EthPool {
     
     function _updateReward(address acct) virtual internal {
         rewards[acct] = earned(acct);
-        referRewards[acct] = earnedRefer(acct);
+        referRewards[acct] = referEarned(acct);
         userRewardPerTokenPaid[acct] = rewardPerTokenStored;
     }
     
@@ -2318,9 +2345,10 @@ contract ThresholdPool is ReferPool {
         eligible[acct] = lptNetValue(_balances[acct]) >= threshold;
     }
     
-    function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual override public updateEligible(msg.sender) {
-        super.stakeWithPermit(amount, deadline, v, r, s);
-    }
+    // comment for reduce code size
+    //function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) virtual override public updateEligible(msg.sender) {
+    //    super.stakeWithPermit(amount, deadline, v, r, s);
+    //}
 
     function stake(uint256 amount) virtual override public updateEligible(msg.sender) {
         super.stake(amount);
@@ -2330,6 +2358,13 @@ contract ThresholdPool is ReferPool {
         super.withdraw(amount);
     }
 
+    function referEarned(address acct) virtual override public view returns (uint) {
+        if(eligible[acct])
+            return super.referEarned(acct);
+        else
+            return 0;
+    }
+    
     function earned(address account) virtual override public view returns (uint256) {
         if(eligible[account])
             return super.earned(account);
@@ -2382,23 +2417,28 @@ contract TermPool is ReferPool {
     }
     
     function stake(uint256 grade) virtual override public {
+        _stake(msg.sender, grade);
+    }
+    function _stake(address acct, uint256 grade) virtual override internal {
         uint vol = calcStakeVol(grade);
-        super.stake(vol);
-        _newOrder(vol);
+        super._stake(acct, vol);
+        _newOrder(acct, vol);
     }
     
     function stakeEth() virtual override public payable {
         revert('instead of stakeEth(uint256 grade)');
     }
     function stakeEth(uint256 grade) virtual public payable {
+        _stakeEth(msg.sender, grade);
+    }
+    function _stakeEth(address acct, uint256 grade) virtual internal {
         uint vol = calcStakeVol(grade);
         require(msg.value >= vol, 'msg.value is not enough');
-        super.stakeEth();
-        _newOrder(vol);
+        super._stakeEth(acct);
+        _newOrder(acct, msg.value);
     }
     
-    function _newOrder(uint vol) virtual internal {
-        address acct = msg.sender;
+    function _newOrder(address acct, uint vol) virtual internal {
         orderBalanceOf[acct].push(vol);
         orderTimestampOf[acct].push(now);
         orderRewardPerTokenOf[acct].push(rewardPerTokenStored);
@@ -2411,16 +2451,19 @@ contract TermPool is ReferPool {
     function withdraw(address acct, uint256 index) virtual external governance {
         _withdraw(acct, index);
     }
-    function _withdraw(address acct, uint256 index) virtual internal {
+    function _withdraw(address acct, uint256 index) virtual override internal {
         require(orderRewardPerTokenOf[acct][index] != uint(-1), 'withdrawal already.');
         require(now >= orderTimestampOf[acct][index].add(config[_stakingTerm_]), 'Not yet due.');
         if(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH())
-            super.withdrawEth(orderBalanceOf[acct][index]);
+            super._withdrawEth(address(uint160(acct)), orderBalanceOf[acct][index]);
         else
-            super.withdraw(orderBalanceOf[acct][index]);
+            super._withdraw(acct, orderBalanceOf[acct][index]);
         
         _getOrderReward(acct, index);
         orderRewardPerTokenOf[acct][index] = uint(-1);
+    }
+    function _withdrawEth(address payable acct, uint index) virtual override internal {
+        _withdraw(acct, index);
     }
     function withdrawEth(uint256 index) virtual override public {
         _withdraw(msg.sender, index);
@@ -2442,33 +2485,6 @@ contract TermPool is ReferPool {
         paid[address(0)] = paid[address(0)].add(rwd).add(r1).add(r2);
     }
     
-//    function _getOrderRewardDebug(address acct, uint index, uint N) virtual public governance {     //internal {    todo for debug
-//if(N<=10)return;
-//        (uint rwd, uint reward) = orderEarned(acct, index);
-//if(N<=20)return;
-//        orderPaid[acct][index] = orderPaid[acct][index].add(rwd);
-//if(N<=30)return;
-//        paid[acct] = paid[acct].add(rwd);
-//if(N<=40)return;
-//        rewardsToken.safeTransferFrom(rewardsDistribution, acct, rwd);
-//if(N<=50)return;
-//        emit RewardPaid(acct, rwd);
-//        
-//if(N<=60)return;
-//        address referer = refer.refererOf(acct);
-//if(N<=70)return;
-//        uint r1 = _getReferReward(referer, rwd, reward, getConfig(_refererWeight_, 1));
-//        
-//if(N<=80)return;
-//        address referer2 = refer.refererOf(referer);
-//if(N<=90)return;
-//        uint r2 = _getReferReward(referer2, rwd, reward, getConfig(_refererWeight_, 2));
-//if(N<=100)return;
-//
-//        paid[address(0)] = paid[address(0)].add(rwd).add(r1).add(r2);
-//if(N<=110)return;
-//    }
-    
     function _getReferReward(address referer, uint rwd, uint reward, uint weight) virtual internal updateReward(referer) returns (uint r) {
         r = rwd.mul(weight).div(1e18);
         paid[referer] = paid[referer].add(r);
@@ -2483,9 +2499,9 @@ contract TermPool is ReferPool {
         revert('No getReward separately, but withdraw or exit.');
     }
     
-    function exit() virtual override public {
-        for(uint i=0; i<orderBalanceOf[msg.sender].length; i++)
-            withdraw(i);
+    function _exit(address acct) virtual override internal {
+        for(uint i=0; i<orderBalanceOf[acct].length; i++)
+            _withdraw(acct, i);
     }
 
     function orderEarned(address acct, uint index) virtual public view returns (uint rwd, uint reward) {
@@ -2516,28 +2532,46 @@ contract TermPoolInner is TermPool {
         caller = _caller;
     }
     
+    modifier denyCall {
+        _;
+        revert('deny call');
+    }
+    function stake(uint256 grade) virtual override public denyCall {
+    }
+    function stakeEth(uint256 grade) virtual override public payable denyCall {
+    }
+    function withdraw(uint256 index) virtual override public denyCall {
+    }
+    function withdrawEth(uint256 index) virtual override public denyCall {
+    }
+
     modifier onlyCaller {
         require(msg.sender == caller, 'only called by caller');
         _;
     }
     
-    function stake(uint256 grade) virtual override public onlyCaller {
-        super.stake(grade);
+    function stake_(address acct, uint256 grade) virtual public onlyCaller {
+        _stake(acct, grade);
     }
-    function stakeEth(uint256 grade) virtual override public payable onlyCaller {
-        super.stakeEth(grade);
+    function stakeEth_(address acct, uint256 grade) virtual public payable onlyCaller {
+        _stakeEth(acct, grade);
     }
     
-    function withdraw(uint256 index) virtual override public onlyCaller {
-        super.withdraw(index);
+    function withdraw_(address acct, uint256 index) virtual public onlyCaller {
+        _withdraw(acct, index);
     }
-    function withdrawEth(uint256 index) virtual override public onlyCaller {
-        super.withdrawEth(index);
+    function withdrawEth_(address payable acct, uint256 index) virtual public onlyCaller {
+        _withdrawEth(acct, index);
+    }
+    
+    function exit_(address payable acct) virtual public onlyCaller {
+        _exit(acct);
     }
 }
 
 contract DualPool is Configurable {
     using SafeMath for uint;
+    using SafeERC20 for IERC20;
     
     TermPoolInner public pool1;
     TermPoolInner public pool2;
@@ -2562,33 +2596,85 @@ contract DualPool is Configurable {
     }
     
     function stake(uint256 grade) virtual public payable {
+        //uint vol1 = pool1.calcStakeVol(grade * 10 + 1);
+        //uint vol2 = pool2.calcStakeVol(grade * 10 + 2);
+        //pool1.stakingToken().safeTransferFrom(msg.sender, address(this), vol1);
+        //pool2.stakingToken().safeTransferFrom(msg.sender, address(this), vol2);
+        //pool1.stakingToken().approve(address(pool1), vol1);
+        //pool2.stakingToken().approve(address(pool2), vol2);
         if(msg.value > 0 && address(pool1.stakingToken()) == IUniswapV2Router02(pool1.refer().router()).WETH())
-            pool1.stakeEth(grade * 10 + 1);
+            pool1.stakeEth_{value: msg.value}(msg.sender, grade * 10 + 1);
         else
-            pool1.stake(grade * 10 + 1);
-        pool2.stake(grade * 10 + 2);
+            pool1.stake_(msg.sender, grade * 10 + 1);
+        pool2.stake_(msg.sender, grade * 10 + 2);
     }
     
     function withdraw(uint256 index) virtual public {
-        pool1.withdraw(index);
-        pool2.withdraw(index);
+        pool1.withdraw_(msg.sender, index);
+        pool2.withdraw_(msg.sender, index);
     }
     function withdraw(address acct, uint256 index) virtual external governance {
-        pool1.withdraw(acct, index);
-        pool2.withdraw(acct, index);
+        pool1.withdraw_(acct, index);
+        pool2.withdraw_(acct, index);
     }
 
     function exit() virtual public {
-        pool1.exit();
-        pool2.exit();
+        pool1.exit_(msg.sender);
+        pool2.exit_(msg.sender);
     }
 
+    function totalSupply() virtual public view returns (uint) {
+        return pool1.totalSupply().add(pool2.totalSupply());
+    }
+    function totalSupplySum()  virtual public view returns (uint) {
+        return pool1.totalSupplySum().add(pool2.totalSupplySum());
+    }
+    
+    function balanceOf(address acct) virtual public view returns (uint b1, uint b2) {
+        b1 = pool1.balanceOf(acct);
+        b2 = pool2.balanceOf(acct);
+    }
+    
+    function earned(address acct) virtual public view returns (uint) {
+        return pool1.earned(acct).add(pool2.earned(acct));
+    }
+    
+    function paid(address acct) virtual public view returns (uint) {
+        return pool1.paid(acct).add(pool2.paid(acct));
+    }
+    
+    function referBalanceOf(address acct) virtual public view returns (uint b1, uint b2) {
+        b1 = pool1.referBalanceOf(acct);
+        b2 = pool2.referBalanceOf(acct);
+    }
+    
+    function referEarned(address acct) virtual public view returns (uint) {
+        return pool1.referEarned(acct).add(pool2.referEarned(acct));
+    }
+    
+    function referPaid(address acct) virtual public view returns (uint) {
+        return pool1.referPaid(acct).add(pool2.referPaid(acct));
+    }
+    
+    function orderCount(address acct) virtual public view returns (uint) {
+        return pool1.orderCount(acct);
+    }
+    
+    function orderBalanceOf(address acct, uint index) virtual public view returns (uint b1, uint b2) {
+        b1 = pool1.orderBalanceOf(acct, index);
+        b2 = pool2.orderBalanceOf(acct, index);
+    }
+    
     function orderEarned(address acct, uint index) virtual public view returns (uint rwd, uint reward) {
         (uint rwd1, uint reward1) = pool1.orderEarned(acct, index);
         (uint rwd2, uint reward2) = pool2.orderEarned(acct, index);
         return (rwd1.add(rwd2), reward1.add(reward2));
     }
-
+    
+    function orderPaid(address acct, uint index) virtual public view returns (uint) {
+        return pool1.orderPaid(acct, index).add(pool2.orderPaid(acct, index));
+    }
+    
 }
 
 
@@ -2600,7 +2686,7 @@ contract Refer is Configurable {
     mapping (address => address) public refererOf;          // acct => referer;
     mapping (address => uint) public refereeN;
     mapping (address => uint) public referee2N;
-    address[] public pools;
+    address payable[] public pools;
     address public router;
     address public usd;
     
@@ -2634,22 +2720,35 @@ contract Refer is Configurable {
         return pools.length;
     }
 
-    function addPool(address pool) virtual external governance {
+    function addPool(address payable pool) virtual external governance {
         StakingPool(pool).rewardPerToken();      // just check
         pools.push(pool);
+    }
+    
+    function referBalanceOf(address acct) external view returns (uint amt) {
+        for(uint i=0; i<pools.length; i++)
+            amt = amt.add(ReferPool(pools[i]).referBalanceOf(acct));
+    }
+    function referEarned(address acct) external view returns (uint amt) {
+        for(uint i=0; i<pools.length; i++)
+            amt = amt.add(ReferPool(pools[i]).referEarned(acct));
+    }
+    function referPaid(address acct) external view returns (uint amt) {
+        for(uint i=0; i<pools.length; i++)
+            amt = amt.add(ReferPool(pools[i]).referPaid(acct));
     }
     
     function balanceOf(address acct) external view returns (uint amt) {
         for(uint i=0; i<pools.length; i++)
             amt = amt.add(StakingPool(pools[i]).balanceOf(acct));
     }
-    function paid(address acct) external view returns (uint amt) {
-        for(uint i=0; i<pools.length; i++)
-            amt = amt.add(StakingPool(pools[i]).paid(acct));
-    }
     function earned(address acct) external view returns (uint amt) {
         for(uint i=0; i<pools.length; i++)
             amt = amt.add(StakingPool(pools[i]).earned(acct));
+    }
+    function paid(address acct) external view returns (uint amt) {
+        for(uint i=0; i<pools.length; i++)
+            amt = amt.add(StakingPool(pools[i]).paid(acct));
     }
     function getReward() external {
         getReward(msg.sender);
@@ -2680,15 +2779,15 @@ contract Mine is Governable {
 contract GTL is ERC20UpgradeSafe, Configurable {
     address vault;
 
-	function __GTL_init(address governor, address mine) public initializer {
+	function __GTL_init(address governor, address mine, address eco) public initializer {
 		__Governable_init(governor);
 		__ERC20_init("Gatling Finance Governance Token", "GTL");
 		
 		uint8 decimals = 18;
 		_setupDecimals(decimals);
 		
-		_mint(governor,  700_000 * 10 ** uint256(decimals));       // 20k for initial liquidity, 50k for airdrop to channel
-		_mint(mine,     9300_000 * 10 ** uint256(decimals));
+		_mint(mine, 9300_000 * 10 ** uint256(decimals));
+		_mint(eco,   700_000 * 10 ** uint256(decimals));       // 50k for initial liquidity, 20k for airdrop to channel
 	}
 	
 }
