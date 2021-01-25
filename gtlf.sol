@@ -1446,12 +1446,20 @@ library UniswapV2Library {
 
     // calculates the CREATE2 address for a pair without making any external calls
     function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
+        bytes32 initCodeHash;
+        assembly {
+            switch chainid() 
+                case 128 { initCodeHash := 0x2ad889f82040abccb2649ea6a874796c1601fb67f91a747a80e08860c73ddf24 }     // HECO Mainnet MDEX
+                default  { initCodeHash := 0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f }     // Ethereum
+        }
         (address token0, address token1) = sortTokens(tokenA, tokenB);
         pair = address(uint(keccak256(abi.encodePacked(
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+                initCodeHash
+                //hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f' // init code hash
+                //bytes32(0x2ad889f82040abccb2649ea6a874796c1601fb67f91a747a80e08860c73ddf24)      // MDEX
             ))));
     }
 
@@ -1514,6 +1522,7 @@ library UniswapV2Library {
 interface IUniswapV2Router01 {
     function factory() external pure returns (address);
     function WETH() external pure returns (address);
+    function WHT() external pure returns (address);
 
     function addLiquidity(
         address tokenA,
@@ -2146,12 +2155,12 @@ contract LimitPool is EthPool {
     }
     
     function stakeEth() virtual override public payable checkLimit(msg.sender) {
-        require(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH(), 'stakingToken is not WETH');
+        require(address(stakingToken) == refer.WHT(), 'stakingToken is not WHT');
         super.stakeEth();
     }
     
     function withdrawEth(uint256 amount) virtual override public {
-        require(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH(), 'stakingToken is not WETH');
+        require(address(stakingToken) == refer.WHT(), 'stakingToken is not WHT');
         super.withdrawEth(amount);
     }
 }
@@ -2225,7 +2234,7 @@ contract ReferPool is EthPool {
     }
 
     function _stakeEth(address acct) virtual override internal checkRefer(acct) {
-        require(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH(), 'stakingToken is not WETH');
+        require(address(stakingToken) == refer.WHT(), 'stakingToken is not WHT');
         super._stakeEth(acct);
         _increaseBalanceRefer(acct, msg.value);
     }
@@ -2236,7 +2245,7 @@ contract ReferPool is EthPool {
     }
     
     function _withdrawEth(address payable acct, uint256 amount) virtual override internal {
-        require(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH(), 'stakingToken is not WETH');
+        require(address(stakingToken) == refer.WHT(), 'stakingToken is not WHT');
         super._withdrawEth(acct, amount);
         _decreaseBalanceRefer(acct, amount);
     }
@@ -2326,7 +2335,7 @@ contract ThresholdPool is ReferPool {
         if(vol == 0)
             return 0;
         IUniswapV2Router02 router = IUniswapV2Router02(refer.router());
-        address WHT = router.WETH();
+        address WHT = refer.WHT();
         uint wht = IERC20(WHT).balanceOf(address(stakingToken));
         if(wht > 0) {
             return wht.mul(vol).div(IERC20(stakingToken).totalSupply()).mul(2);
@@ -2454,7 +2463,7 @@ contract TermPool is ReferPool {
     function _withdraw(address acct, uint256 index) virtual override internal {
         require(orderRewardPerTokenOf[acct][index] != uint(-1), 'withdrawal already.');
         require(now >= orderTimestampOf[acct][index].add(config[_stakingTerm_]), 'Not yet due.');
-        if(address(stakingToken) == IUniswapV2Router02(refer.router()).WETH())
+        if(address(stakingToken) == refer.WHT())
             super._withdrawEth(address(uint160(acct)), orderBalanceOf[acct][index]);
         else
             super._withdraw(acct, orderBalanceOf[acct][index]);
@@ -2596,13 +2605,7 @@ contract DualPool is Configurable {
     }
     
     function stake(uint256 grade) virtual public payable {
-        //uint vol1 = pool1.calcStakeVol(grade * 10 + 1);
-        //uint vol2 = pool2.calcStakeVol(grade * 10 + 2);
-        //pool1.stakingToken().safeTransferFrom(msg.sender, address(this), vol1);
-        //pool2.stakingToken().safeTransferFrom(msg.sender, address(this), vol2);
-        //pool1.stakingToken().approve(address(pool1), vol1);
-        //pool2.stakingToken().approve(address(pool2), vol2);
-        if(msg.value > 0 && address(pool1.stakingToken()) == IUniswapV2Router02(pool1.refer().router()).WETH())
+        if(msg.value > 0 && address(pool1.stakingToken()) == pool1.refer().WHT())
             pool1.stakeEth_{value: msg.value}(msg.sender, grade * 10 + 1);
         else
             pool1.stake_(msg.sender, grade * 10 + 1);
@@ -2702,6 +2705,31 @@ contract Refer is Configurable {
         refererOf[top] = top;
         router = router_;
         usd = usd_;
+    }
+    
+    function WETH() public view returns (address addr) {
+        return WHT();
+    }
+    function WHT() public view returns (address addr) {
+        uint id;
+        assembly {
+            id := chainid()
+        }
+        if(id == 128)
+            return IUniswapV2Router02(router).WHT();
+        else
+            return IUniswapV2Router02(router).WETH();
+
+        //assembly {
+        //    switch chainid() 
+        //        case  1  { addr := 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 }      // Ethereum Mainnet
+        //        case  3  { addr := 0xc778417E063141139Fce010982780140Aa0cD5Ab }      // Ethereum Testnet Ropsten
+        //        case  4  { addr := 0xc778417E063141139Fce010982780140Aa0cD5Ab }      // Ethereum Testnet Rinkeby
+        //        case  5  { addr := 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6 }      // Ethereum Testnet Gorli
+        //        case 42  { addr := 0xd0A1E359811322d97991E03f863a0C30C2cF029C }      // Ethereum Testnet Kovan
+        //        case 128 { addr := 0x5545153ccfca01fbd7dd11c0b23ba694d9509a6f }      // HECO Mainnet
+        //        default  { addr := 0x0                                        }      // unknown 
+        //}
     }
     
     function bind(address referer) virtual public {
