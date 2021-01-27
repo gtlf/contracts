@@ -2411,15 +2411,20 @@ contract TermPool is ReferPool {
         config[_stakingTerm_] = 5 minutes;         //5 days;   //todo
         _setConfig(_gradeVol_,  1,  100 ether);
         _setConfig(_gradeVol_,  2, 1000 ether);
+        _setConfig(_gradeVol_,  3,10000 ether);
         _setConfig(_gradeVol_, 11,   80 ether);
         _setConfig(_gradeVol_, 12,   20 ether);
         _setConfig(_gradeVol_, 21,  800 ether);
         _setConfig(_gradeVol_, 22,  200 ether);
+        _setConfig(_gradeVol_, 31, 8000 ether);
+        _setConfig(_gradeVol_, 32, 2000 ether);
     }
     
     function calcStakeVol(uint256 grade) virtual public view returns (uint) {
-        IUniswapV2Factory factory = IUniswapV2Factory(IUniswapV2Router02(refer.router()).factory());
         address usd = Refer(refer).usd();
+        if(usd == address(stakingToken))
+            return getConfig(_gradeVol_, grade);
+        IUniswapV2Factory factory = IUniswapV2Factory(IUniswapV2Router02(refer.router()).factory());
         require(factory.getPair(usd, address(stakingToken)) != address(0), 'Not exist pair');
         (uint R1, uint R2) = UniswapV2Library.getReserves(address(factory), usd, address(stakingToken));
         return UniswapV2Library.quote(getConfig(_gradeVol_, grade), R1, R2);
