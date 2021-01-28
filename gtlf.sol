@@ -2754,7 +2754,7 @@ contract Refer is Configurable {
     }
 
     function addPool(address payable pool) virtual external governance {
-        StakingPool(pool).rewardPerToken();      // just check
+        //ReferPool(pool).refer();      // just check
         pools.push(pool);
     }
     
