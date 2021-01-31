@@ -2269,9 +2269,9 @@ contract ReferPool is EthPool {
         return referBalanceOf[acct].mul(rewardPerToken().sub(userRewardPerTokenPaid[acct])).div(1e18).add(referRewards[acct]);
     }
 
-    function earned(address acct) virtual override public view returns (uint) {
-        return super.earned(acct).add(referEarned(acct));
-    }
+    //function earned(address acct) virtual override public view returns (uint) {
+    //    return super.earned(acct).add(referEarned(acct));
+    //}
 
     modifier updateReward(address acct) virtual override {
         (uint delta, uint d) = (rewardDelta(), 0);
@@ -2301,11 +2301,42 @@ contract ReferPool is EthPool {
         userRewardPerTokenPaid[acct] = rewardPerTokenStored;
     }
     
-    function getReward(address acct) virtual override public {
-        referPaid[acct] = referPaid[acct].add(referRewards[acct]);
-        referRewards[acct] = 0;
-        super.getReward(acct);
+    //function getReward(address acct) virtual override public {
+    //    super.getReward(acct);
+    //    referPaid[acct] = referPaid[acct].add(referRewards[acct]);
+    //    referRewards[acct] = 0;
+    //}
+
+    function getReferReward() virtual public {
+        getReferReward(msg.sender);
     }
+    function getReferReward(address acct) virtual public {
+        _getReferReward(acct);
+    }
+    function _getReferReward(address acct) virtual internal nonReentrant updateReward(acct) {
+        require(acct != address(0), 'invalid address');
+        require(getConfig(_blocklist_, acct) == 0, 'In blocklist');
+        bool isContract = acct.isContract();
+        require(!isContract || config[_allowContract_] != 0 || getConfig(_allowlist_, acct) != 0, 'No allowContract');
+
+        uint256 reward = referRewards[acct];
+        if (reward > 0) {
+            referPaid[acct] = referPaid[acct].add(reward);
+            referPaid[address(0)] = referPaid[address(0)].add(reward);
+            referRewards[acct] = 0;
+            rewards[address(0)] = rewards[address(0)].sub0(reward);
+            rewardsToken.safeTransferFrom(rewardsDistribution, acct, reward);
+            emit ReferRewardPaid(acct, reward);
+            
+            if(config[_rewards2Token_] != 0 && config[_rewards2Begin_] <= now) {
+                uint reward2 = Math.min(reward.mul(config[_rewards2Ratio_]).div(1e18), IERC20(config[_rewards2Token_]).balanceOf(address(this)));
+                IERC20(config[_rewards2Token_]).safeTransfer(acct, reward2);
+                emit ReferRewardPaid2(acct, reward2);
+            }
+        }
+    }
+    event ReferRewardPaid(address indexed user, uint256 reward);
+    event ReferRewardPaid2(address indexed user, uint256 reward2);
 }
 
 contract ThresholdPool is ReferPool {
@@ -2508,6 +2539,10 @@ contract TermPool is ReferPool {
         emit ReferRewardPaid(referer, r);
     }
     event ReferRewardPaid(address indexed referer, uint r);
+    
+    function _getReferReward(address acct) virtual override internal {
+        getReward(acct);
+    }
     
     function getReward(address) virtual override public {
         revert('No getReward separately, but withdraw or exit.');
