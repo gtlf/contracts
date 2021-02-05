@@ -2844,18 +2844,18 @@ contract Mine is Governable {
 }
 
 
-contract GTL is ERC20UpgradeSafe, Configurable {
+contract GTLT is ERC20UpgradeSafe, Configurable {
     address vault;
 
-	function __GTL_init(address governor, address mine, address eco) public initializer {
+	function __GTLT_init(address governor, address mine, address eco) public initializer {
 		__Governable_init(governor);
-		__ERC20_init("Gatling Finance Governance Token", "GTL");
+		__ERC20_init("Gatling Finance Token", "GTLT");
 		
 		uint8 decimals = 18;
 		_setupDecimals(decimals);
 		
-		_mint(mine, 9300_000 * 10 ** uint256(decimals));
-		_mint(eco,   700_000 * 10 ** uint256(decimals));       // 50k for initial liquidity, 20k for airdrop to channel
+		_mint(mine, 9000_000 * 10 ** uint256(decimals));
+		_mint(eco,  1000_000 * 10 ** uint256(decimals));       // mapping to GTL holders
 	}
 	
 }
